@@ -1,0 +1,258 @@
+{
+  "description": "A New Flow",
+  "states": [
+    {
+      "name": "Trigger",
+      "type": "trigger",
+      "transitions": [
+        {
+          "event": "incomingMessage"
+        },
+        {
+          "next": "function_split_traffic",
+          "event": "incomingCall"
+        },
+        {
+          "event": "incomingRequest"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    {
+      "name": "split_based_on_optly_bucket",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "event": "noMatch"
+        },
+        {
+          "next": "say_long",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value equal_to long",
+              "arguments": [
+                "{{widgets.function_split_traffic.parsed.key}}"
+              ],
+              "type": "equal_to",
+              "value": "LONG"
+            }
+          ]
+        },
+        {
+          "next": "say_short",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value equal_to short",
+              "arguments": [
+                "{{widgets.function_split_traffic.parsed.key}}"
+              ],
+              "type": "equal_to",
+              "value": "SHORT"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.function_split_traffic.parsed.key}}",
+        "offset": {
+          "x": -10,
+          "y": 540
+        }
+      }
+    },
+    {
+      "name": "say_long",
+      "type": "say-play",
+      "transitions": [
+        {
+          "next": "function_track_IVR_COMPLETED",
+          "event": "audioComplete"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -50,
+          "y": 840
+        },
+        "loop": 1,
+        "say": "Hello and welcome back to our valued customer. Please have your confirmation number ready when you pull up to the pick up area. Don't forget to wear a mask! If you don't have one our team members will be happy to give you one. Keep in mind our pick up hours are slightly different than our store hours and our team members will assist you with pickups from 8am to 10pm. Please stay on the line until you have completed your pickup to participate in our survey."
+      }
+    },
+    {
+      "name": "say_short",
+      "type": "say-play",
+      "transitions": [
+        {
+          "next": "function_track_IVR_COMPLETED",
+          "event": "audioComplete"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 320,
+          "y": 830
+        },
+        "loop": 1,
+        "say": "Hello, please have your confirmation number ready when you pull up to the pick up area. Stay on the line until you have picked up your item."
+      }
+    },
+    {
+      "name": "gather_survey_score",
+      "type": "gather-input-on-call",
+      "transitions": [
+        {
+          "next": "function_track_IVR_SATISFACTION_SCORE",
+          "event": "keypress"
+        },
+        {
+          "event": "speech"
+        },
+        {
+          "event": "timeout"
+        }
+      ],
+      "properties": {
+        "speech_timeout": "auto",
+        "offset": {
+          "x": 190,
+          "y": 1470
+        },
+        "loop": 1,
+        "finish_on_key": "#",
+        "say": "On a scale of 1 to 5 with 1 being terrible and 5 being the best, please press the number that represents your satisfaction with our menu items.",
+        "stop_gather": true,
+        "gather_language": "en",
+        "profanity_filter": "true",
+        "timeout": 7
+      }
+    },
+    {
+      "name": "say_goodbye",
+      "type": "say-play",
+      "transitions": [
+        {
+          "event": "audioComplete"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 240,
+          "y": 2090
+        },
+        "loop": 1,
+        "say": "thank you for participating in our survey, good bye"
+      }
+    },
+    {
+      "name": "function_split_traffic",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "split_based_on_optly_bucket",
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 130,
+          "y": 250
+        },
+        "method": "GET",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "value": "{{trigger.call.From}}",
+            "key": "From"
+          },
+          {
+            "value": "IVR_SCRIPT",
+            "key": "experiment_name"
+          }
+        ],
+        "url": "https://optimizely-blog-9487.twil.io/split-traffic"
+      }
+    },
+    {
+      "name": "function_track_IVR_COMPLETED",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "gather_survey_score",
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 180,
+          "y": 1140
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "value": "COMPLETED_IVR",
+            "key": "event_name"
+          },
+          {
+            "value": "{{trigger.call.From}}",
+            "key": "From"
+          }
+        ],
+        "url": "https://optimizely-blog-9487.twil.io/track-event"
+      }
+    },
+    {
+      "name": "function_track_IVR_SATISFACTION_SCORE",
+      "type": "make-http-request",
+      "transitions": [
+        {
+          "next": "say_goodbye",
+          "event": "success"
+        },
+        {
+          "event": "failed"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 220,
+          "y": 1740
+        },
+        "method": "POST",
+        "content_type": "application/x-www-form-urlencoded;charset=utf-8",
+        "parameters": [
+          {
+            "value": "{{trigger.call.From}}",
+            "key": "From"
+          },
+          {
+            "value": "{{widgets.gather_survey_score.Digits}}",
+            "key": "score"
+          },
+          {
+            "value": "IVR_SATISFACTION_SCORE",
+            "key": "event_name"
+          }
+        ],
+        "url": "https://optimizely-blog-9487.twil.io/track-value-event"
+      }
+    }
+  ],
+  "initial_state": "Trigger",
+  "flags": {
+    "allow_concurrent_calls": true
+  }
+}
